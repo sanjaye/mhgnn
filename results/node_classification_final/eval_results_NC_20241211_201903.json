@@ -1,0 +1,32 @@
+[
+    {
+        "config_file": "NC_GAT_OPENAI copy.yaml",
+        "train_loss": 0.011130604892969131,
+        "test_acc": 0.9829937184004903,
+        "val_accuracy": 0.9797732148329757
+    },
+    {
+        "config_file": "NC_GAT_OPENAI.yaml",
+        "train_loss": 0.013945314101874828,
+        "test_acc": 0.9836065573770492,
+        "val_accuracy": 0.980386147716825
+    },
+    {
+        "config_file": "NC_GAT_STFR.yaml",
+        "train_loss": 0.005911276210099459,
+        "test_acc": 0.9851386548184464,
+        "val_accuracy": 0.9809990806006742
+    },
+    {
+        "config_file": "NC_GraphSage_openAI.yaml",
+        "train_loss": 0.00024240001221187413,
+        "test_acc": 0.9940248199785506,
+        "val_accuracy": 0.9926448053938094
+    },
+    {
+        "config_file": "NC_GraphSage_STFR.yaml",
+        "train_loss": 0.000410805776482448,
+        "test_acc": 0.9947908686992493,
+        "val_accuracy": 0.9938706711615078
+    }
+]

@@ -1,0 +1,38 @@
+[
+    {
+        "config_file": "itmmh_GAT_EW_openai.yaml",
+        "score": 0.7068398498488522,
+        "prec": 0.5871088792009271,
+        "recall": 0.8879152061425472
+    },
+    {
+        "config_file": "itmmh_GAT_EW_stfrmr.yaml",
+        "score": 0.7028866127068262,
+        "prec": 0.615621079046424,
+        "recall": 0.8189784677015524
+    },
+    {
+        "config_file": "itmmh_GraphSage_EW_openai.yaml",
+        "score": 0.7351705767851654,
+        "prec": 0.6221605687532512,
+        "recall": 0.8983475212819229
+    },
+    {
+        "config_file": "itmmh_GraphSage_EW_stfrmr.yaml",
+        "score": 0.7497535271120178,
+        "prec": 0.6325359949521023,
+        "recall": 0.9202971123351694
+    },
+    {
+        "config_file": "itmmh_hetrognn_openai.yaml",
+        "score": 0.7667232096762298,
+        "prec": 0.6980929358044587,
+        "recall": 0.8503189923114673
+    },
+    {
+        "config_file": "itmmh_hetrognn_stfrmr.yaml",
+        "score": 0.7942964001870032,
+        "prec": 0.7583692902841839,
+        "recall": 0.8337968264354654
+    }
+]

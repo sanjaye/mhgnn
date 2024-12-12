@@ -1,0 +1,37 @@
+[
+    {
+        "config_file": "mhp_cats.yaml",
+        "train_loss": 0.0,
+        "train_accuracy": 100.0,
+        "test_loss": 0.0,
+        "test_accuracy": 100.0
+    },
+    {
+        "config_file": "mhp_classes.yaml",
+        "train_loss": 5.817939758300781,
+        "train_accuracy": 4.582977512097922,
+        "test_loss": 5.978410243988037,
+        "test_accuracy": 3.1619219084055366
+    },
+    {
+        "config_file": "mhp_depts.yaml",
+        "train_loss": 2.899578094482422,
+        "train_accuracy": 45.41466980748924,
+        "test_loss": 2.9805490970611572,
+        "test_accuracy": 43.412509897070464
+    },
+    {
+        "config_file": "mhp_subcats.yaml",
+        "train_loss": 1.7188585996627808,
+        "train_accuracy": 78.83531013027417,
+        "test_loss": 1.8376524448394775,
+        "test_accuracy": 71.48193606916058
+    },
+    {
+        "config_file": "mhp_subdepts.yaml",
+        "train_loss": 4.9220147132873535,
+        "train_accuracy": 6.210274651583183,
+        "test_loss": 5.098793029785156,
+        "test_accuracy": 4.905398635890717
+    }
+]

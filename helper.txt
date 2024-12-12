@@ -1,0 +1,2 @@
+set up environment
+conda update -n base -c defaults conda
