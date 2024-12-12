@@ -59,7 +59,7 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
             
             dump_cfg(cfg)
            # cfg = load_config(config_path)
-            best_score=0
+            #best_score=0
             print(f"Evaluating configuration: {config_file}")
             if cfg.dataset.task=="node":  # node classification
                  
@@ -84,7 +84,7 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
                     best_config = config_file
                 log_file="results\eval_results_NC_" + current_datetime +".json"
 
-            elif cfg.model.type=="MH_HETRO":
+            elif cfg.model.type=="MH_HETRO":  #Predit MH Parents using Hetro GNN
                 train_loss,train_accuracy,test_loss,test_accuracy=train_evaluate_hgnn_mhp(config_file,cfg,device)
                 print()
                 print(f"Train Results for  configuration: {config_file}")
@@ -110,9 +110,9 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
                 current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 log_file="results\eval_results_MHP_" + current_datetime +".json"
             else:
-                if cfg.model.type=="HETRO":
+                if cfg.model.type=="HETRO":  # Use HETRO GNN for link prediction
                     f1_score,prec,recall,train_losses,train_test_accs=train_evaluate_hgnn(config_file,cfg,device)
-                else:
+                else:   #Predict links using GAT/GraphSage
                     f1_score,prec,recall,train_losses,train_test_accs=train_evaluate_gnn(config_file,cfg,device)
                 current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 log_file="results\eval_results_LINK_" + current_datetime +".json"

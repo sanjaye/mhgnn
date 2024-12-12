@@ -18,13 +18,14 @@ import torch.nn as nn
 
 from cmd_args import parse_args
 from config import cfg,load_cfg,set_out_dir,dump_cfg
+
 from mhgnns import GraphSAGE,GAT,GNNStack,HeteroGNN,MHParentPredictor,GNN_MHP
 
 # Define the GraphSAGE model
 
 from torch_geometric.nn import HeteroConv, GCNConv
 
-# Training loop
+
 def get_negative_edges(edge_index, num_nodes, num_neg_samples):
     neg_edge_index = negative_sampling(
         edge_index=edge_index,
