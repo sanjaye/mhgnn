@@ -19,9 +19,8 @@ import torch.nn as nn
 from cmd_args import parse_args
 from config import cfg,load_cfg,set_out_dir,dump_cfg
 
-from mhgnns import GraphSAGE,GAT,GNNStack,HeteroGNN,MHParentPredictor,GNN_MHP
+from mhgnns import GraphSAGE,GAT,GNNStack,HeteroGNN,MHParentPredictor,GNN_MHP,MHGNN
 
-# Define the GraphSAGE model
 
 from torch_geometric.nn import HeteroConv, GCNConv
 
@@ -35,9 +34,6 @@ def get_negative_edges(edge_index, num_nodes, num_neg_samples):
     return neg_edge_index
 
 def compute_loss(pos_score, neg_score):
-    #pos_loss = -torch.log(torch.sigmoid(pos_score)).mean()
-    #neg_loss = -torch.log(1 - torch.sigmoid(neg_score)).mean()
-
     pos_loss = F.binary_cross_entropy_with_logits(pos_score, torch.ones_like(pos_score))  #works better than logsoftmax
     neg_loss = F.binary_cross_entropy_with_logits(neg_score, torch.zeros_like(neg_score))
     return pos_loss + neg_loss
@@ -62,8 +58,6 @@ def custom_negative_sampling(pos_edges, num_nodes_src, num_nodes_tgt, num_neg_sa
 def train_hgnn(train_data,val_data,device,cfg):
 
     
-    #test_loader = loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
-    #num_node_features=data.x.shape[1]
 
     num_node_features=train_data.x_dict['products'].shape[1] #384
 
@@ -446,7 +440,7 @@ def get_product_parent_edge_index(hdata,parenttype):
         product_to_subdept_edge_index = torch.tensor(product_to_subdept_edges).t()
         hdata['products', 'childof', 'subdepts'].edge_index = product_to_subdept_edge_index
 
-    product_to_class_edge_index= hdata['products', 'childof', 'subdepts'].edge_index  #already in the dataset
+    product_to_class_edge_index= hdata['products', 'childof', 'classes'].edge_index  #already in the dataset
     
  
     if parenttype=='cats':
@@ -460,7 +454,7 @@ def get_product_parent_edge_index(hdata,parenttype):
     else:
         parent_edge_index=product_to_class_edge_index
  
-    return parent_edge_index
+    return parent_edge_index,hdata
 
 def train_hgnn_mhp(train_data,val_data,device,cfg):
 
@@ -482,7 +476,11 @@ def train_hgnn_mhp(train_data,val_data,device,cfg):
     #class_indexes=combined[1,combined[2,:]==1]
     parenttype=cfg.model.pred_parent
 
-    parent_edge_index=get_product_parent_edge_index(train_data,parenttype=parenttype )
+    parent_edge_index,data_addnl_edges=get_product_parent_edge_index(train_data,parenttype=parenttype )
+    if cfg.dataset.add_direct_pdt_edges:
+        train_data=data_addnl_edges
+ 
+    
     parent_indexes =parent_edge_index[1]
 
     parent_indexes=parent_indexes.to(device)
@@ -580,7 +578,9 @@ def evaluate_hgnn_mhp(model,data, edge_label_index,device,is_validation=False, s
     data=data.to(device)
 
     parenttype=cfg.model.pred_parent
-    parent_edge_index=get_product_parent_edge_index(data,parenttype=cfg.model.pred_parent)
+    parent_edge_index,data_addnl_edges=get_product_parent_edge_index(data,parenttype=cfg.model.pred_parent)
+    if cfg.dataset.add_direct_pdt_edges:
+        data=data_addnl_edges
     parent_indexes =parent_edge_index[1]
 
     parent_indexes=parent_indexes.to(device)
@@ -687,7 +687,9 @@ def train_evaluate_hgnn_mhp(config_filename,config_obj,device):
 
    
 
-    parent_edge_index=get_product_parent_edge_index(test_data,parenttype=cfg.model.pred_parent)
+    parent_edge_index,data_addnl_edges=get_product_parent_edge_index(test_data,parenttype=cfg.model.pred_parent)
+    if cfg.dataset.add_direct_pdt_edges:
+        test_data=data_addnl_edges
     parent_indexes =parent_edge_index[1]
 
     parent_indexes=parent_indexes.to(device)
@@ -842,6 +844,143 @@ def train_evaluate_gnn_nc(config_filename,config_obj,device):
     plt.savefig('results\itmmh-Node-'+ config_filename + "-" + current_datetime + '.png')
     val_accu=test_gnn_nc(best_model,is_validation=True,save_model_preds=True,model_type=cfg.model.type,ds=mhdata) #(model=best_model, data=test_data,device=device,is_validation=False, save_model_preds=True,config_filename=config_filename)
     return tlosses,test_accs,val_accu
+
+def train_MHGNN(train_data,val_data,device,cfg):
+    
+    #test_loader = loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
+    num_node_features=train_data.x.shape[1]
+    num_classes=1393
+
+    model=MHGNN(input_dim=num_node_features,hidden_dim=cfg.gnn.dim_inner,num_classes=num_classes)
+           
+    model=model.to(device)
+    train_data=train_data.to(device)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=cfg.optim.base_lr)
+
+    losses = []
+    test_accs = []
+    best_acc = 0
+    best_model = None
+    for epoch in trange(cfg.optim.max_epoch, desc="Training", unit="Epochs"):
+        model.train()
+        total_loss = 0
+        optimizer.zero_grad()
+        out = model(train_data.x, train_data.edge_index) 
+        pos_neg_score=model.edge_score(train_data.edge_label_index,out,out)  #use both positive and -ve edges
+        #loss=model.loss(pos_neg_score,data.edge_label)
+        loss = F.binary_cross_entropy_with_logits(pos_neg_score, train_data.edge_label)  #works better than logsoftmax
+   
+        loss.backward()
+        optimizer.step()
+        losses.append(loss)
+        if epoch % 10 == 0:
+          #test_acc = test(loader=test_loader, test_model=model,ds=dataset)
+          #print("epoch,train_loss",epoch,loss)
+          f1,prec,recall = evaluate_gnn(model=model,data=val_data,device=device)
+          test_accs.append(f1)
+          print("epoch,train_loss",epoch,loss.cpu().detach().numpy())
+          print("test scores: epoch, f1,prec,recall",epoch,loss.cpu().detach().numpy(),round(f1,2),prec,recall)
+          
+          if f1 > best_acc:
+            best_acc = f1
+            best_model = copy.deepcopy(model)
+        else:
+          test_accs.append(test_accs[-1])
+
+    return test_accs, losses, best_model, best_acc
+    #return loss.item()
+
+# Evaluation loop
+def evaluate_MHGNN(model,data, device,is_validation=False, save_model_preds=False,config_filename="default"):
+    #model=test_model
+    
+    model.eval()
+    with torch.no_grad():
+        out = model(data.x, data.edge_index)
+
+        # Compute scores for positive and negative edges
+
+        pos_neg_score=model.edge_score(data.edge_label_index,out,out)  #use both positive and -ve edges
+
+
+        y_pred=pos_neg_score
+
+        y_pred = (y_pred > 0).float()
+        y_true=data.edge_label        
+
+ 
+        data_l=data.edge_label_index
+        data_l=torch.cat([data_l,y_true.unsqueeze(dim=0)])
+        data_l=torch.cat([data_l,y_pred.unsqueeze(dim=0)])
+
+
+        # Compute F1 score
+        precision = precision_score(y_true.cpu(), y_pred.cpu())
+        recall = recall_score(y_true.cpu(), y_pred.cpu())
+        f1 = f1_score(y_true.cpu(), y_pred.cpu())
+
+        if save_model_preds:
+            print ("Saving Model Predictions for config filename", config_filename)
+
+            data = {}
+            data['pred'] = y_pred.view(-1).cpu().detach().numpy()
+            data['label'] = y_true.view(-1).cpu().detach().numpy()
+
+            df = pd.DataFrame(data=data_l.cpu())
+            # Save locally as csv 
+            current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        
+            df.to_csv('results\itmmh-link-' + config_filename +"-" + current_datetime + '.csv', sep=',', index=False)
+
+        #mask = data.val_mask if is_validation else data.test_mask
+
+        return f1,precision,recall
+def train_evaluate_MHGNN(config_filename,config_obj,device):
+
+    cfg=config_obj
+
+   
+
+    ds_data_graph = ItemDataset(root=cfg.dataset.dir,split=cfg.dataset.split,openai=cfg.dataset.open_ai_embed)
+
+    ds= [tup[0] for tup in ds_data_graph]
+
+    mhdata=ds[0]
+
+    # Create a PyTorch Geometric Data object
+    #data = Data(x=x, edge_index=edge_index)
+    data=Data(mhdata.x,mhdata.edge_index)
+
+    #data = train_test_split_edges(data=data,val_ratio=cfg.dataset.valratio)  # Split the edges into train, val, and test sets
+
+    transform = RandomLinkSplit(is_undirected=False, num_val=0.15,num_test=0.15, add_negative_train_samples=True)  
+
+    train_data, val_data, test_data = transform(data)
+
+    train_data=train_data.to(device)
+    test_data=test_data.to(device)
+    val_data=val_data.to(device)
+
+    # Train the model
+    test_accs, train_losses, best_model, best_acc = train_gnn(train_data=train_data,val_data=val_data,device=device,cfg=cfg)
+ 
+
+    #use the best model to save the scores and plot
+
+    f1_score,prec,recall=evaluate_gnn(model=best_model, data=test_data,device=device,is_validation=False, save_model_preds=True,config_filename=config_filename)
+
+    plt.title("MH Node link Prediction for " + config_filename)
+    losses = [tensor.item() for tensor in train_losses]
+    #losses.to(device)
+    #test_accs.to(device)dg
+    plt.plot(losses, label="training loss" + " - " + cfg.model.type)
+    plt.plot(test_accs, label="test accuracy" + " - " + cfg.model.type)
+
+    current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    plt.savefig('results\itmmh-Node-'+ config_filename + "-" + current_datetime + '.png')
+    return f1_score,prec,recall,losses,test_accs
+
 class objectview(object):
     def __init__(self, d):
         self.__dict__ = d

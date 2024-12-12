@@ -188,6 +188,9 @@ def set_cfg(cfg):
     # Whether resample negative edges at training time (link prediction only)
     cfg.dataset.resample_negative = False
 
+    #Whether to add additional edges between product and higher levelnodes
+    cfg.dataset.add_direct_pdt_edges=False
+
     # ==============
 
     # feature augmentation

@@ -34,7 +34,7 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    #device="cpu"
+    device="cpu"
     
     best_config = None
     best_score = float('-inf')  # Initialize with the lowest possible score
@@ -110,7 +110,9 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
                 current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
                 log_file="results\eval_results_MHP_" + current_datetime +".json"
             else:
-                if cfg.model.type=="HETRO":  # Use HETRO GNN for link prediction
+                if cfg.model.type=="MHGNN":
+                    pass
+                elif cfg.model.type=="HETRO":  # Use HETRO GNN for link prediction
                     f1_score,prec,recall,train_losses,train_test_accs=train_evaluate_hgnn(config_file,cfg,device)
                 else:   #Predict links using GAT/GraphSage
                     f1_score,prec,recall,train_losses,train_test_accs=train_evaluate_gnn(config_file,cfg,device)

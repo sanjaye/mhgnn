@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import SAGEConv
+from torch_geometric.nn import SAGEConv,GCNConv,global_mean_pool,TopKPooling
 from torch_geometric.nn import GATConv
 from sklearn.metrics import precision_score, recall_score, f1_score
 from torch_geometric.utils import negative_sampling
@@ -11,6 +11,39 @@ from torch_geometric.nn import HeteroConv
 
 from cmd_args import parse_args
 from config import cfg,load_cfg,set_out_dir,dump_cfg
+
+
+class MHGNN(torch.nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_classes):
+        super(MHGNN, self).__init__()
+        
+        # Message-passing layers
+        self.conv1 = GCNConv(input_dim, hidden_dim)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim)
+        
+        # Hierarchical pooling
+        self.pool1 = TopKPooling(hidden_dim, ratio=0.8)
+        
+        # Fully connected layers for node classification
+        self.fc1 = torch.nn.Linear(hidden_dim, hidden_dim)
+        self.fc2 = torch.nn.Linear(hidden_dim, num_classes)  # `num_classes` is the number of parent nodes
+        
+    def forward(self, x, edge_index, batch, node_level):
+        # Initial graph convolution
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        
+        # Apply pooling to capture hierarchical relationships
+        x, edge_index, _, batch, _, _ = self.pool1(x, edge_index, batch)
+        
+        # Use node-level information to focus on product nodes
+        product_mask = (node_level == "product")  # Boolean mask for product nodes
+        product_features = x[product_mask]  # Features only for product nodes
+        
+        # Fully connected layers for classification
+        x = F.relu(self.fc1(product_features))
+        x = self.fc2(x)  # Predict the parent class for each product
+        return x
 
 class HeteroGNN(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels,heads=1):
@@ -86,8 +119,13 @@ class MHParentPredictor(torch.nn.Module):
         self.mhp_tfrm=nn.Linear(mhp_input_dim,hidden_dim)
         self.pdt_mhp=nn.Linear(hidden_dim,num_mhparents)
         #self.sm=nn.Softmax(dim=1)
+
+        self.attention = nn.Linear(pdt_input_dim + mhp_input_dim, 1)
+        self.product_transform = nn.Linear(pdt_input_dim, hidden_dim)
+        self.combined_transform = nn.Linear(hidden_dim + mhp_input_dim, hidden_dim)
+        self.output_layer = nn.Linear(hidden_dim, num_mhparents)
         
-    def forward(self,pdt,mhp):
+    def forward_cossim(self,pdt,mhp,edge_index=None):
         
         
         pdt=self.pdt_tfrm(pdt)
@@ -102,6 +140,32 @@ class MHParentPredictor(torch.nn.Module):
 
 
         return scores
+    def forward(self,product_features,class_tensor,edge_index=None):
+
+        num_products=product_features.shape[0]
+        src_nodes=edge_index[0]
+        class_features=class_tensor[edge_index[1]]
+       
+        combined_features = torch.cat([product_features, class_features], dim=1)  # Shape: (num_edges, product_features + class_features)
+        attention_scores = self.attention(combined_features)  # Shape: (num_edges, 1)
+        attention_weights = F.softmax(attention_scores, dim=0)  # Normalize scores across edges
+
+        # Step 2: Compute weighted class features
+        weighted_class_features = attention_weights * class_features  # Shape: (num_edges, class_features)
+
+        # Step 3: Aggregate weighted class features for each product node
+        aggregated_parents = torch.zeros(num_products, class_features.size(1), device=product_features.device)  # Shape: (num_products, class_features)
+        index_tensor = torch.arange(num_products) 
+        aggregated_parents.index_add_(0, index_tensor, weighted_class_features)  # Aggregation by product index
+
+        # Step 4: Transform product features and combine with aggregated parent features
+        product_features = self.pdt_tfrm(product_features)  # Shape: (num_edges, hidden_dim)
+        combined_features = torch.cat([product_features, aggregated_parents[index_tensor]], dim=1)  # Shape: (num_edges, hidden_dim + class_features)
+        combined_features = self.combined_transform(combined_features)  # Shape: (num_edges, hidden_dim)
+
+        # Step 5: Produce logits for each product node
+        logits = self.output_layer(combined_features)  # Shape: (num_products, output_dim)
+        return logits
 
 
 class MHCosSimParentPredictor(nn.Module): #use cosine similarity insted of mhparentpredictor
@@ -141,7 +205,9 @@ class GNN_MHP(torch.nn.Module):
             pdt_embed=node_embed['products'][edge_index[0]]  #just get the data that exists in edge_index in that sequence
             #class_idx=edge_index[1].unique()
             #class_embed=node_embed['classes']  #class Labels
+            #class_embed=node_embed['products'][edge_index[1]] 
             class_embed=node_embed[parenttype]  #class Labels
+            
         else:
             pass
         #out=MHCosSimParentPredictor
@@ -156,7 +222,7 @@ class GNN_MHP(torch.nn.Module):
 
         if True:
         #out=self.mhpmodel(pdt_embed)
-            out=self.mhpmodel(pdt_embed,class_embed)
+            out=self.mhpmodel(pdt_embed,class_embed,edge_index=edge_index)
         return out
 
     
