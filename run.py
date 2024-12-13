@@ -34,7 +34,7 @@ def evaluate_configs(config_dir, log_file=".\results\evaluation_results.json",cf
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    device="cpu"
+    #device="cpu"
     
     best_config = None
     best_score = float('-inf')  # Initialize with the lowest possible score

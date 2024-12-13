@@ -19,7 +19,7 @@ import torch.nn as nn
 from cmd_args import parse_args
 from config import cfg,load_cfg,set_out_dir,dump_cfg
 
-from mhgnns import GraphSAGE,GAT,GNNStack,HeteroGNN,MHParentPredictor,GNN_MHP,MHGNN
+from mhgnns import GNNStack,MHParentPredictor,MHGNN
 
 
 from torch_geometric.nn import HeteroConv, GCNConv
@@ -493,7 +493,7 @@ def train_hgnn_mhp(train_data,val_data,device,cfg):
     mhpmodel=MHParentPredictor(cfg,num_node_features,num_node_features,cfg.gnn.dim_inner,num_classes)
     
 
-    gnn_mhp_model=GNN_MHP(cfg,gnnmodel,mhpmodel)
+    gnn_mhp_model=MHGNN(cfg,gnnmodel,mhpmodel)
 
     gnnmodel=gnnmodel.to(device)
     mhpmodel=mhpmodel.to(device)

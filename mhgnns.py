@@ -13,38 +13,6 @@ from cmd_args import parse_args
 from config import cfg,load_cfg,set_out_dir,dump_cfg
 
 
-class MHGNN(torch.nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_classes):
-        super(MHGNN, self).__init__()
-        
-        # Message-passing layers
-        self.conv1 = GCNConv(input_dim, hidden_dim)
-        self.conv2 = GCNConv(hidden_dim, hidden_dim)
-        
-        # Hierarchical pooling
-        self.pool1 = TopKPooling(hidden_dim, ratio=0.8)
-        
-        # Fully connected layers for node classification
-        self.fc1 = torch.nn.Linear(hidden_dim, hidden_dim)
-        self.fc2 = torch.nn.Linear(hidden_dim, num_classes)  # `num_classes` is the number of parent nodes
-        
-    def forward(self, x, edge_index, batch, node_level):
-        # Initial graph convolution
-        x = F.relu(self.conv1(x, edge_index))
-        x = F.relu(self.conv2(x, edge_index))
-        
-        # Apply pooling to capture hierarchical relationships
-        x, edge_index, _, batch, _, _ = self.pool1(x, edge_index, batch)
-        
-        # Use node-level information to focus on product nodes
-        product_mask = (node_level == "product")  # Boolean mask for product nodes
-        product_features = x[product_mask]  # Features only for product nodes
-        
-        # Fully connected layers for classification
-        x = F.relu(self.fc1(product_features))
-        x = self.fc2(x)  # Predict the parent class for each product
-        return x
-
 class HeteroGNN(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels,heads=1):
         super().__init__()
@@ -155,7 +123,7 @@ class MHParentPredictor(torch.nn.Module):
 
         # Step 3: Aggregate weighted class features for each product node
         aggregated_parents = torch.zeros(num_products, class_features.size(1), device=product_features.device)  # Shape: (num_products, class_features)
-        index_tensor = torch.arange(num_products) 
+        index_tensor = torch.arange(num_products,device=product_features.device)
         aggregated_parents.index_add_(0, index_tensor, weighted_class_features)  # Aggregation by product index
 
         # Step 4: Transform product features and combine with aggregated parent features
@@ -167,30 +135,10 @@ class MHParentPredictor(torch.nn.Module):
         logits = self.output_layer(combined_features)  # Shape: (num_products, output_dim)
         return logits
 
-
-class MHCosSimParentPredictor(nn.Module): #use cosine similarity insted of mhparentpredictor
-    def __init__(self, product_embeddings, class_embeddings):
-        super(MHCosSimParentPredictor, self).__init__()
-        #self.input_to_embedding = nn.Linear(input_dim, class_embeddings.shape[1])  # Input to match class embedding dim
-        self.input_to_embedding = nn.Parameter(product_embeddings, requires_grad=True)
-        self.class_embeddings = nn.Parameter(class_embeddings, requires_grad=True)  # Fixed class embeddings
-
-    def forward(self, x):
-        # Compute input embedding
-        input_embedding = self.input_to_embedding(x)  # Shape: (batch_size, embedding_dim)
-        input_embedding = F.normalize(input_embedding, p=2, dim=1)  # L2 normalize
-        
-        # Normalize class embeddings
-        class_embeddings = F.normalize(self.class_embeddings, p=2, dim=1)  # Shape: (num_classes, embedding_dim)
-        
-        # Compute cosine similarity
-        similarities = torch.matmul(input_embedding, class_embeddings.T)  # Shape: (batch_size, num_classes)
-        return similarities
-
-    
-class GNN_MHP(torch.nn.Module):
+   
+class MHGNN(torch.nn.Module):
     def __init__(self, cfg,gnnmodel,mhpmodel):
-        super(GNN_MHP, self).__init__()
+        super(MHGNN, self).__init__()
         self.gnnmodel=gnnmodel
         self.mhpmodel=mhpmodel
         #self.input_to_embedding = nn.Linear(384, 1393)
