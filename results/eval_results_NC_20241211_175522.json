@@ -1,8 +1,0 @@
-[
-    {
-        "config_file": "NC_GAT_OPENAI.yaml",
-        "train_loss": 0.3710748553276062,
-        "test_acc": 0.9214034012563199,
-        "val_accuracy": 0.9189396261109408
-    }
-]

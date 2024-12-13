@@ -1,9 +1,0 @@
-[
-    {
-        "config_file": "mhp_classes.yaml",
-        "train_loss": 5.866210460662842,
-        "train_accuracy": 3.2083405333794133,
-        "test_loss": 6.037090301513672,
-        "test_accuracy": 3.3057220292399894
-    }
-]
