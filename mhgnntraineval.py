@@ -24,6 +24,8 @@ from mhgnns import GNNStack,MHParentPredictor,MHGNN
 
 from torch_geometric.nn import HeteroConv, GCNConv
 
+#from torchviz import make_dot
+
 
 def get_negative_edges(edge_index, num_nodes, num_neg_samples):
     neg_edge_index = negative_sampling(
@@ -620,6 +622,8 @@ def evaluate_hgnn_mhp(model,data, edge_label_index,device,is_validation=False, s
         df = pd.DataFrame(data=data)
         # Save locally as csv 
         current_datetime = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+        #make_dot(out, params=dict(model.named_parameters())).render("model_architecture", format="png")
 
         df.to_csv('results\itmmh-link-' + config_filename +"-" + current_datetime + '.csv', sep=',', index=False)
 

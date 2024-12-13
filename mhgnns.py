@@ -118,20 +118,20 @@ class MHParentPredictor(torch.nn.Module):
         attention_scores = self.attention(combined_features)  # Shape: (num_edges, 1)
         attention_weights = F.softmax(attention_scores, dim=0)  # Normalize scores across edges
 
-        # Step 2: Compute weighted class features
+        #Compute weighted class features
         weighted_class_features = attention_weights * class_features  # Shape: (num_edges, class_features)
 
-        # Step 3: Aggregate weighted class features for each product node
+        #Aggregate weighted class features for each product node
         aggregated_parents = torch.zeros(num_products, class_features.size(1), device=product_features.device)  # Shape: (num_products, class_features)
         index_tensor = torch.arange(num_products,device=product_features.device)
         aggregated_parents.index_add_(0, index_tensor, weighted_class_features)  # Aggregation by product index
 
-        # Step 4: Transform product features and combine with aggregated parent features
+        #Transform product features and combine with aggregated parent features
         product_features = self.pdt_tfrm(product_features)  # Shape: (num_edges, hidden_dim)
         combined_features = torch.cat([product_features, aggregated_parents[index_tensor]], dim=1)  # Shape: (num_edges, hidden_dim + class_features)
         combined_features = self.combined_transform(combined_features)  # Shape: (num_edges, hidden_dim)
 
-        # Step 5: Produce logits for each product node
+        #Produce logits for each product node
         logits = self.output_layer(combined_features)  # Shape: (num_products, output_dim)
         return logits
 

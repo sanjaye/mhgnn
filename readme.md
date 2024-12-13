@@ -28,6 +28,7 @@ Code files
    itmdataset.py -  used in graphsage and GAT experiemnts
    hetroitmdataset.py - used in hetrognn experiments
    run.py -   This is the programto run. It will loop through the config files in the config
-   folder and find the best model/config for link-prediction (coded in hetrographlinks.py)     
+   folder and find the best model/config for link-prediction (coded in hetrographlinks.py)  
+   EDA_and_KNN_Model.ipynb --  Data analysis /KNN   
 
 
